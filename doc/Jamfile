@@ -58,8 +58,7 @@ actions make_transform
 #
 make reference.xml
     :
-        source.dox
-        ../include/boost/beast/core/bind_handler.hpp
+        ./source.dox
     :
         @make_xml
     :
@@ -71,18 +70,18 @@ if [ os.name ] = NT
 {
     actions make_xml
     {
-        PUSHD $(2:D)
-        SET XML_OUTPUT=$(1:D) && doxygen $(2) && xsltproc $(1:B=combine:S=.xslt) $(1:B=index:S=.xml) > $(1)
-        POPD
+        SET LIB_DIR=$(2:B=:S=..)
+        SET XML_OUTPUT=$(1:D)
+        doxygen $(2) && xsltproc $(1:B=combine:S=.xslt) $(1:B=index:S=.xml) > $(1)
     }
 }
 else
 {
     actions make_xml
     {
-        pushd $(2:D)
-        XML_OUTPUT=$(1:D) doxygen $(2) && xsltproc $(1:B=combine:S=.xslt) $(1:B=index:S=.xml) > $(1)
-        popd
+        export LIB_DIR=$(2:D)
+        export XML_OUTPUT=$(1:D)
+        doxygen $(2) && xsltproc $(1:B=combine:S=.xslt) $(1:B=index:S=.xml) > $(1)
     }
 }
 
