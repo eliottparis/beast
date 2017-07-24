@@ -7,31 +7,135 @@
 
 project beast/doc ;
 
-import boostbook : boostbook ;
+import os ;
+import path ;
+import boostbook ;
+import quickbook ;
 
-using boostbook ;
-using quickbook ;
-using doxygen ;
-
+#-------------------------------------------------------------------------------
 #
-# HTML documentation for $(BOOST_ROOT)/doc/html
+# Build the list of header files that Doxygen will scan. We need
+# this list to inform the build system of the dependencies so the
+# docs can be rebuild if any of the header files change.
 #
 
+local sources = [ path.glob-tree ../include/boost/beast : *.hpp *.ipp : detail impl ] ;
+
+#-------------------------------------------------------------------------------
+#
+# Generate transform.xsl. This xsl transfomration takes as input
+# the Doxygen-generated XML and produces QuickBook output.
+#
+make transform.xsl
+    :
+        docca/include/docca/doxygen.xsl
+    :
+        @make_transform
+    :
+        <dependency>xsl/config.xsl
+        <dependency>xsl/class_detail.xsl
+        <dependency>xsl/includes.xsl
+        <dependency>xsl/includes_foot.xsl
+    ;
+
+# Make a copy of the docca transform. Then, insert our
+# customizations into the speciall marked locations using sed.
+#
+actions make_transform
+{
+    cp $(2) $(1)
+    sed -i -e "/<!-- CONFIG_TEMPLATE -->/{r xsl/config.xsl" -e "d}" $(1)
+    sed -i -e "/<!-- CLASS_DETAIL_TEMPLATE -->/{r xsl/class_detail.xsl" -e "d}" $(1)
+    sed -i -e "/<!-- INCLUDES_TEMPLATE -->/{r xsl/includes.xsl" -e "d}" $(1)
+    sed -i -e "/<!-- INCLUDES_FOOT_TEMPLATE -->/{r xsl/includes_foot.xsl" -e "d}" $(1)
+}
+
+#-------------------------------------------------------------------------------
+#
+# Invoke Doxygen to process the header files and produce the XML
+# containing the description of the C++ declarations and extracted
+# Javadoc comments.
+#
+make reference.xml
+    :
+        source.dox
+        ../include/boost/beast/core/bind_handler.hpp
+    :
+        @make_xml
+    :
+        <dependency>$(sources)
+    ;
+
+# Windows is a little different from other platforms
+if [ os.name ] = NT
+{
+    actions make_xml
+    {
+        PUSHD $(2:D)
+        SET XML_OUTPUT=$(1:D) && doxygen $(2) && xsltproc $(1:B=combine:S=.xslt) $(1:B=index:S=.xml) > $(1)
+        POPD
+    }
+}
+else
+{
+    actions make_xml
+    {
+        pushd $(2:D)
+        XML_OUTPUT=$(1:D) doxygen $(2) && xsltproc $(1:B=combine:S=.xslt) $(1:B=index:S=.xml) > $(1)
+        popd
+    }
+}
+
+#-------------------------------------------------------------------------------
+#
+# Produce the reference.qbk file by running
+# the reference xml through the transform.
+#
+make reference.qbk
+    :
+        transform.xsl
+        reference.xml
+    :
+        @make_reference
+    ;
+
+actions make_reference
+{
+    xsltproc $(2) $(3) > $(1)
+}
+
+# We have to make a copy of reference.qbk and put it
+# in a place where the static .qbk files can find it
+#
+install qbk : reference.qbk ;
+
+#-------------------------------------------------------------------------------
+#
+# Produce the Boost.Book XML from the QuickBook
+#
 xml beast_doc
     :
         qbk/00_main.qbk
+    :
+        <implicit-dependency>reference.qbk
     ;
 
 explicit beast_doc ;
 
-install beast_doc_images
+install images
     :
         images/message.png
     :
         <location>html/beast/images
     ;
 
-explicit beast_doc_images ;
+explicit images ;
+
+#-------------------------------------------------------------------------------
+#
+# HTML documentation for $(BOOST_ROOT)/doc/html
+#
+#-------------------------------------------------------------------------------
 
 boostbook beast
     :
@@ -48,9 +152,15 @@ boostbook beast
         <xsl:param>generate.toc="chapter toc,title section nop reference nop"
         <include>../../../tools/boostbook/dtd
     :
-        <dependency>beast_doc_images
+        <dependency>images
     ;
 
+
+#-------------------------------------------------------------------------------
+#
+# These are used to inform the build system of the
+# means to build the integrated and stand-alone docs.
+#
 
 alias boostdoc : beast : : : ;
 
