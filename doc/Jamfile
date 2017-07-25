@@ -11,6 +11,7 @@ import os ;
 import path ;
 import boostbook ;
 import quickbook ;
+import xsltproc ;
 
 #-------------------------------------------------------------------------------
 #
@@ -55,34 +56,39 @@ actions make_transform
 # containing the description of the C++ declarations and extracted
 # Javadoc comments.
 #
-make reference.xml
+make index.xml
     :
         ./source.dox
     :
-        @make_xml
+        @make_doxygen_xml
     :
         <dependency>$(sources)
     ;
 
-# Windows is a little different from other platforms
 if [ os.name ] = NT
 {
-    actions make_xml
+    actions make_doxygen_xml
     {
         SET LIB_DIR=$(2:B=:S=..)
         SET XML_OUTPUT=$(1:D)
-        doxygen $(2) && xsltproc $(1:B=combine:S=.xslt) $(1:B=index:S=.xml) > $(1)
+        doxygen $(2)
     }
 }
 else
 {
-    actions make_xml
+    actions make_doxygen_xml
     {
         export LIB_DIR=$(2:B=:S=..)
         export XML_OUTPUT=$(1:D)
-        doxygen $(2) && xsltproc $(1:B=combine:S=.xslt) $(1:B=index:S=.xml) > $(1)
+        doxygen $(2)
     }
 }
+
+xslt reference.xml
+    :
+        index.xml
+        combine.xslt
+    ;
 
 #-------------------------------------------------------------------------------
 #
@@ -94,10 +100,10 @@ make reference.qbk
         transform.xsl
         reference.xml
     :
-        @make_reference
+        @make_ref_qbk
     ;
 
-actions make_reference
+actions make_ref_qbk
 {
     xsltproc $(2) > $(1)
 }
