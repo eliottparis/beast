@@ -78,7 +78,7 @@ else
 {
     actions make_xml
     {
-        export LIB_DIR=$(2:D)
+        export LIB_DIR=$(2:B=:S=..)
         export XML_OUTPUT=$(1:D)
         doxygen $(2) && xsltproc $(1:B=combine:S=.xslt) $(1:B=index:S=.xml) > $(1)
     }
@@ -99,7 +99,7 @@ make reference.qbk
 
 actions make_reference
 {
-    xsltproc $(2) $(3) > $(1)
+    xsltproc $(2) > $(1)
 }
 
 # We have to make a copy of reference.qbk and put it
