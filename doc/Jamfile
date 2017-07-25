@@ -12,6 +12,8 @@ import path ;
 import boostbook ;
 import quickbook ;
 import xsltproc ;
+import doxygen ;
+import modules ;
 
 #-------------------------------------------------------------------------------
 #
@@ -21,6 +23,18 @@ import xsltproc ;
 #
 
 local sources = [ path.glob-tree ../include/boost/beast : *.hpp *.ipp : detail impl ] ;
+
+# Get the configured paths to doxygen and xsltproc
+
+.doxygen = [ doxygen.name ] ;
+.doxygen ?= doxygen ;
+
+#ECHO Using doxygen from "$(.doxygen)" ;
+
+.xsltproc = [ xsltproc.name ] ;
+.xsltproc ?= xsltproc ;
+
+#ECHO Using xsltproc from "$(.xsltproc)" ;
 
 #-------------------------------------------------------------------------------
 #
@@ -71,7 +85,7 @@ if [ os.name ] = NT
     {
         SET LIB_DIR=$(2:B=:S=..)
         SET XML_OUTPUT=$(1:D)
-        doxygen $(2)
+        "$(.doxygen)" $(2)
     }
 }
 else
@@ -80,15 +94,29 @@ else
     {
         export LIB_DIR=$(2:B=:S=..)
         export XML_OUTPUT=$(1:D)
-        doxygen $(2)
+        "$(.doxygen)" $(2)
     }
 }
 
-xslt reference.xml
+make combine.xslt : index.xml : @null_action ;
+
+actions null_action
+{
+    touch -c $(1) ;
+}
+
+make reference.xml
     :
-        index.xml
         combine.xslt
+        index.xml
+    :
+        @call-xsltproc
     ;
+
+actions call-xsltproc
+{
+    "$(.xsltproc)" $(2) > $(1)
+}
 
 #-------------------------------------------------------------------------------
 #
@@ -100,13 +128,8 @@ make reference.qbk
         transform.xsl
         reference.xml
     :
-        @make_ref_qbk
+        @call-xsltproc
     ;
-
-actions make_ref_qbk
-{
-    xsltproc $(2) > $(1)
-}
 
 # We have to make a copy of reference.qbk and put it
 # in a place where the static .qbk files can find it
